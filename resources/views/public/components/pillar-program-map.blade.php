@@ -31,7 +31,7 @@
         '06' => ['name' => 'Knowledge & Publication', 'color' => '#55307f', 'slug' => 'knowledge-publication'],
     ];
 
-    // Fallback otomatis koordinat kota-kota di Indonesia jika OMC belum mengisi GPS
+    // Fallback otomatis koordinat kota-kota di Indonesia
     $cityCoordinates = [
         'bandung barat' => [-6.8402, 107.5143],
         'bandung' => [-6.9175, 107.6191],
@@ -56,7 +56,7 @@
     $mapLocations = [];
 
     foreach ($dbPrograms as $dbp) {
-        // Tentukan Pilar (dari impact_stats atau relasi atau fallback 01)
+        // Tentukan Pilar (dari impact_stats atau relasi)
         $pCode = '01';
         if (is_array($dbp->impact_stats) && !empty($dbp->impact_stats['pillar_code'])) {
             $pCode = str_pad($dbp->impact_stats['pillar_code'], 2, '0', STR_PAD_LEFT);
@@ -70,8 +70,61 @@
         if (!isset($pillarsLookup[$pCode])) {
             $pCode = '01';
         }
-
         $pMeta = $pillarsLookup[$pCode];
+
+        // Hierarki Wilayah (Provinsi -> Kabupaten/Kota -> Detail Lokasi)
+        $stats = is_array($dbp->impact_stats) ? $dbp->impact_stats : [];
+        $province = $stats['province'] ?? null;
+        $city = $stats['city'] ?? null;
+        $detailAddress = $stats['detail_address'] ?? null;
+
+        // Auto-infer Provinsi & Kota jika belum tersimpan di JSON
+        $locName = $dbp->location_name ?? '';
+        $locLower = strtolower($locName);
+
+        if (empty($province)) {
+            if (str_contains($locLower, 'jawa barat') || str_contains($locLower, 'bandung') || str_contains($locLower, 'sumedang') || str_contains($locLower, 'garut') || str_contains($locLower, 'cianjur') || str_contains($locLower, 'bogor')) {
+                $province = 'Jawa Barat';
+            } elseif (str_contains($locLower, 'yogyakarta') || str_contains($locLower, 'sleman') || str_contains($locLower, 'jogja')) {
+                $province = 'D.I. Yogyakarta';
+            } elseif (str_contains($locLower, 'jakarta')) {
+                $province = 'DKI Jakarta';
+            } elseif (str_contains($locLower, 'jawa timur') || str_contains($locLower, 'surabaya') || str_contains($locLower, 'malang')) {
+                $province = 'Jawa Timur';
+            } elseif (str_contains($locLower, 'jawa tengah') || str_contains($locLower, 'semarang')) {
+                $province = 'Jawa Tengah';
+            } elseif (str_contains($locLower, 'bali') || str_contains($locLower, 'denpasar')) {
+                $province = 'Bali';
+            } else {
+                $province = 'Jawa Barat';
+            }
+        }
+
+        if (empty($city)) {
+            if (str_contains($locLower, 'bandung barat')) {
+                $city = 'Kab. Bandung Barat';
+            } elseif (str_contains($locLower, 'bandung')) {
+                $city = 'Kota Bandung';
+            } elseif (str_contains($locLower, 'sleman')) {
+                $city = 'Kab. Sleman';
+            } elseif (str_contains($locLower, 'sumedang')) {
+                $city = 'Kab. Sumedang';
+            } elseif (str_contains($locLower, 'garut')) {
+                $city = 'Kab. Garut';
+            } elseif (str_contains($locLower, 'cianjur')) {
+                $city = 'Kab. Cianjur';
+            } elseif (str_contains($locLower, 'jakarta')) {
+                $city = 'Jakarta Pusat';
+            } elseif (str_contains($locLower, 'surabaya')) {
+                $city = 'Kota Surabaya';
+            } else {
+                $city = $dbp->location_name ?: 'Kota Bandung';
+            }
+        }
+
+        if (empty($detailAddress)) {
+            $detailAddress = $locName ?: ($city . ', ' . $province);
+        }
 
         // Ekstraksi Koordinat GPS
         $lat = null;
@@ -85,8 +138,7 @@
         }
 
         // Fallback koordinat kota jika input kosong atau 0,0
-        if (($lat === null || $lng === null || ($lat == 0 && $lng == 0)) && !empty($dbp->location_name)) {
-            $locLower = strtolower($dbp->location_name);
+        if (($lat === null || $lng === null || ($lat == 0 && $lng == 0))) {
             foreach ($cityCoordinates as $cName => $cCoords) {
                 if (str_contains($locLower, $cName)) {
                     $lat = $cCoords[0];
@@ -96,7 +148,7 @@
             }
         }
 
-        // Default absolut ke Sekretariat Pusat Bandung
+        // Default ke Bandung jika tetap belum ada
         if ($lat === null || $lng === null || ($lat == 0 && $lng == 0)) {
             $lat = -6.9175;
             $lng = 107.6191;
@@ -124,7 +176,7 @@
             $pGoal = is_array($dbp->goal) ? ($dbp->goal[$lang] ?? reset($dbp->goal) ?? '') : $dbp->goal;
         }
 
-        // Beneficiaries / Kuota
+        // Kuota
         $pBen = $dbp->quota_total > 0 ? number_format($dbp->quota_total) . ' Kuota Peserta/Relawan' : 'Program Terdaftar';
 
         $mapLocations[] = [
@@ -134,7 +186,10 @@
             'pillar_name' => $pMeta['name'],
             'pillar_color' => $pMeta['color'],
             'pillar_slug' => $pMeta['slug'],
-            'location_name' => $dbp->location_name ?? 'Bandung, Jawa Barat',
+            'province' => $province,
+            'city' => $city,
+            'detail_address' => $detailAddress,
+            'location_name' => $city . ', ' . $province,
             'lat' => $lat,
             'lng' => $lng,
             'status' => $pStatus,
@@ -147,11 +202,21 @@
 
     $totalTitik = count($mapLocations);
     $firstLoc = $mapLocations[0] ?? null;
+
+    // Kumpulan unik Provinsi dan Kabupaten untuk dropdown filter bertingkat
+    $provincesList = collect($mapLocations)->pluck('province')->unique()->sort()->values();
+    $citiesByProv = collect($mapLocations)->groupBy('province')->map(function($items) {
+        return $items->pluck('city')->unique()->sort()->values();
+    });
 @endphp
 
-{{-- LEAFLET ASSETS --}}
+{{-- LEAFLET & LEAFLET MARKERCLUSTER ASSETS (Solusi Anti-Tabrakan Data Pin) --}}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 
 <style>
     /* Styling Custom Pin Leaflet */
@@ -167,8 +232,8 @@
         z-index: 9999 !important;
     }
     .yota-map-pin-inner {
-        width: 28px;
-        height: 28px;
+        width: 30px;
+        height: 30px;
         border-radius: 9999px;
         border: 2.5px solid #ffffff;
         box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
@@ -194,6 +259,45 @@
         70% { transform: scale(2.2); opacity: 0; }
         100% { transform: scale(2.4); opacity: 0; }
     }
+
+    /* Styling Klaster Geospasial Anti-Tabrakan */
+    .yota-cluster-pin {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .yota-cluster-bubble {
+        width: 44px;
+        height: 44px;
+        border-radius: 9999px;
+        background-color: #052c24;
+        border: 3px solid #BEF264;
+        color: #BEF264;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 10px 25px -5px rgba(5, 44, 36, 0.5);
+        cursor: pointer;
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .yota-cluster-bubble:hover {
+        transform: scale(1.15);
+    }
+    .yota-cluster-count {
+        font-family: monospace;
+        font-weight: 900;
+        font-size: 13px;
+        line-height: 1;
+    }
+    .yota-cluster-label {
+        font-size: 7px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        opacity: 0.85;
+    }
+
     /* Popup Styling */
     .leaflet-popup-content-wrapper {
         border-radius: 1.25rem !important;
@@ -219,13 +323,13 @@
             <div>
                 <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-[#064e3b] text-[10px] font-black uppercase tracking-[0.25em] mb-2.5">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span>GEOSPASIAL AKSI & DAMPAK NASIONAL</span>
+                    <span>HIERARKI GEOSPASIAL & AKSI NASIONAL</span>
                 </div>
                 <h3 class="text-2xl md:text-4xl font-black text-[#052c24] tracking-tight uppercase leading-none">
-                    Peta Persebaran Program <span class="text-slate-400 font-serif italic lowercase">terikat 6 pilar.</span>
+                    Peta Persebaran Program <span class="text-slate-400 font-serif italic lowercase">provinsi, kab/kota & titik aksi.</span>
                 </h3>
                 <p class="text-xs md:text-sm text-slate-500 max-w-2xl mt-2 font-normal">
-                    Pantau sebaran titik implementasi inisiatif, mitra desa binaan, dan aksi nyata relawan YOTA di seluruh penjuru kepulauan Indonesia. Dikelola langsung melalui panel OMC.
+                    Jelajahi sebaran titik program berdasarkan klaster Provinsi, Kabupaten/Kota, hingga detail lokasi aksi. Dilengkapi sistem anti-tabrakan otomatis.
                 </p>
             </div>
 
@@ -243,28 +347,80 @@
                 </div>
 
                 <div class="hidden sm:flex px-4 py-2.5 rounded-2xl bg-white border border-slate-200/90 shadow-sm items-center gap-2">
-                    <span class="text-xs font-black text-slate-400">Total:</span>
-                    <span class="text-sm font-black text-[#052c24] font-mono">{{ $totalTitik }} Program</span>
+                    <span class="text-xs font-black text-slate-400">Total Program:</span>
+                    <span class="text-sm font-black text-[#052c24] font-mono">{{ $totalTitik }} Titik</span>
                 </div>
             </div>
         </div>
 
-        {{-- Filter Tombol Pilar (Horizontal Scroll on Mobile) --}}
-        <div class="flex items-center gap-2 overflow-x-auto pb-4 mb-6 scrollbar-none select-none">
-            @foreach($pillarsMeta as $meta)
-            <button type="button"
-                    onclick="filterMapPillar('{{ $meta['code'] }}', this)"
-                    data-pillar="{{ $meta['code'] }}"
-                    class="pillar-filter-btn px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center gap-2 whitespace-nowrap shadow-sm border {{ $meta['code'] == 'ALL' ? 'bg-[#052c24] text-white border-[#052c24]' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50' }}"
-                    data-color="{{ $meta['color'] }}">
-                @if($meta['code'] != 'ALL')
-                    <span class="w-2.5 h-2.5 rounded-full" style="background-color: {{ $meta['color'] }}"></span>
-                @else
-                    <span class="w-2.5 h-2.5 rounded-full bg-lime-400"></span>
-                @endif
-                <span>{{ $meta['code'] == 'ALL' ? 'Semua Pilar' : 'Pilar ' . $meta['code'] . ' • ' . $meta['name'] }}</span>
-            </button>
-            @endforeach
+        {{-- BREADCRUMB & FILTER WILAYAH BERTINGKAT (PROVINSI -> KABUPATEN/KOTA) --}}
+        <div class="bg-white rounded-3xl p-4 md:p-5 border border-slate-200/90 shadow-sm mb-6 space-y-4">
+            
+            {{-- Baris 1: Filter Dropdown Wilayah & Breadcrumb --}}
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                
+                {{-- Breadcrumb Geospasial Aktif --}}
+                <div class="flex items-center gap-2 text-xs font-bold text-slate-400 overflow-x-auto whitespace-nowrap">
+                    <span class="text-[#052c24] font-black uppercase tracking-wider">Nasional</span>
+                    <span>/</span>
+                    <span id="breadcrumbProvince" class="text-emerald-700 font-black">Semua Provinsi</span>
+                    <span>/</span>
+                    <span id="breadcrumbCity" class="text-slate-600 font-medium">Semua Kab/Kota</span>
+                </div>
+
+                {{-- Dropdowns Filter Wilayah --}}
+                <div class="flex flex-wrap sm:flex-nowrap items-center gap-3">
+                    
+                    {{-- Dropdown Provinsi --}}
+                    <div class="relative w-full sm:w-auto">
+                        <select id="provFilterSelect" onchange="filterByProvince(this.value)" class="w-full sm:w-48 appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 pr-8 text-xs font-black text-[#052c24] uppercase tracking-wider focus:ring-2 focus:ring-lime-500 transition-all cursor-pointer">
+                            <option value="ALL">Semua Provinsi ({{ $provincesList->count() }})</option>
+                            @foreach($provincesList as $prov)
+                                @php $cnt = collect($mapLocations)->where('province', $prov)->count(); @endphp
+                                <option value="{{ $prov }}">{{ $prov }} ({{ $cnt }})</option>
+                            @endforeach
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                    </div>
+
+                    {{-- Dropdown Kabupaten / Kota --}}
+                    <div class="relative w-full sm:w-auto">
+                        <select id="cityFilterSelect" onchange="filterByCity(this.value)" class="w-full sm:w-52 appearance-none bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-4 py-2.5 pr-8 text-xs font-black text-[#052c24] uppercase tracking-wider focus:ring-2 focus:ring-lime-500 transition-all cursor-pointer">
+                            <option value="ALL">Semua Kab / Kota</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </div>
+                    </div>
+
+                    {{-- Tombol Reset Wilayah --}}
+                    <button type="button" onclick="resetRegionFilters()" class="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-[11px] font-black uppercase tracking-wider text-slate-600 transition-all whitespace-nowrap">
+                        Reset
+                    </button>
+                </div>
+
+            </div>
+
+            {{-- Baris 2: Filter Tombol Pilar (Horizontal Scroll) --}}
+            <div class="pt-3 border-t border-slate-100 flex items-center gap-2 overflow-x-auto scrollbar-none select-none">
+                @foreach($pillarsMeta as $meta)
+                <button type="button"
+                        onclick="filterMapPillar('{{ $meta['code'] }}', this)"
+                        data-pillar="{{ $meta['code'] }}"
+                        class="pillar-filter-btn px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all duration-200 flex items-center gap-2 whitespace-nowrap shadow-sm border {{ $meta['code'] == 'ALL' ? 'bg-[#052c24] text-white border-[#052c24]' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50' }}"
+                        data-color="{{ $meta['color'] }}">
+                    @if($meta['code'] != 'ALL')
+                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: {{ $meta['color'] }}"></span>
+                    @else
+                        <span class="w-2.5 h-2.5 rounded-full bg-lime-400"></span>
+                    @endif
+                    <span>{{ $meta['code'] == 'ALL' ? 'Semua Pilar' : 'Pilar ' . $meta['code'] . ' • ' . $meta['name'] }}</span>
+                </button>
+                @endforeach
+            </div>
+
         </div>
 
         @if($totalTitik === 0)
@@ -283,10 +439,10 @@
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch" x-show="viewMode === 'map'">
 
                 {{-- MAP CANVAS (8 Cols on Desktop) --}}
-                <div class="lg:col-span-8 bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-200/90 shadow-lg relative min-h-[460px] md:min-h-[560px]">
+                <div class="lg:col-span-8 bg-slate-900 rounded-[2.5rem] overflow-hidden border border-slate-200/90 shadow-lg relative min-h-[480px] md:min-h-[580px]">
 
                     {{-- The Leaflet Map Element --}}
-                    <div id="yotaPillarsMap" class="w-full h-full min-h-[460px] md:min-h-[560px] z-10"></div>
+                    <div id="yotaPillarsMap" class="w-full h-full min-h-[480px] md:min-h-[580px] z-10"></div>
 
                     {{-- Map Overlay Controls (Top Right) --}}
                     <div class="absolute top-4 right-4 z-20 flex flex-col gap-2">
@@ -297,7 +453,7 @@
                         </button>
                     </div>
 
-                    {{-- Map Legend (Bottom Left) --}}
+                    {{-- Map Legend & Cluster Hint (Bottom Left) --}}
                     <div class="absolute bottom-4 left-4 z-20 bg-white/95 backdrop-blur-md px-3.5 py-2.5 rounded-2xl shadow-lg border border-slate-200 hidden sm:flex items-center gap-3">
                         <span class="text-[9px] font-black uppercase tracking-wider text-slate-400">Pilar:</span>
                         <div class="flex items-center gap-2">
@@ -315,7 +471,7 @@
                 {{-- SIDEBAR LIST / ACTIVE HIGHLIGHT (4 Cols on Desktop) --}}
                 <div class="lg:col-span-4 flex flex-col justify-between space-y-4">
 
-                    {{-- Active Highlight Card --}}
+                    {{-- Active Highlight Card dengan Hierarki Wilayah --}}
                     <div id="activeLocationCard" class="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm transition-all">
                         <div class="flex items-center justify-between gap-2 mb-3">
                             <span id="cardPillarBadge" class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase text-white shadow-sm" style="background-color: {{ $firstLoc['pillar_color'] ?? '#0361a4' }}">
@@ -330,9 +486,20 @@
                             {{ $firstLoc['title'] ?? 'Pilih Program' }}
                         </h4>
 
+                        {{-- Tag Hierarki Wilayah (Provinsi & Kabupaten) --}}
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                            <span id="cardProvinceBadge" class="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 text-[10px] font-black uppercase tracking-wider border border-emerald-200">
+                                {{ $firstLoc['province'] ?? 'Jawa Barat' }}
+                            </span>
+                            <span id="cardCityBadge" class="px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
+                                {{ $firstLoc['city'] ?? 'Kota Bandung' }}
+                            </span>
+                        </div>
+
+                        {{-- Detail Alamat Aksi --}}
                         <div class="flex items-center gap-2 text-slate-500 text-xs mb-3">
                             <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            <span id="cardLocation" class="font-bold text-[#052c24]">{{ $firstLoc['location_name'] ?? 'Indonesia' }}</span>
+                            <span id="cardLocation" class="font-bold text-[#052c24]">{{ $firstLoc['detail_address'] ?? $firstLoc['location_name'] ?? 'Indonesia' }}</span>
                         </div>
 
                         <p id="cardDesc" class="text-xs text-slate-600 leading-relaxed font-normal mb-4">
@@ -355,7 +522,7 @@
                     <div class="bg-white rounded-3xl p-4 border border-slate-200/90 shadow-sm flex-1 flex flex-col">
                         <div class="flex items-center justify-between mb-3 px-2">
                             <span class="text-[10px] font-black uppercase tracking-wider text-slate-400">
-                                Daftar Program di Peta (<span id="filteredCount">{{ $totalTitik }}</span>)
+                                Daftar Program Terfilter (<span id="filteredCount">{{ $totalTitik }}</span>)
                             </span>
                             <span class="text-[9px] font-bold text-slate-400">Klik untuk fokus titik</span>
                         </div>
@@ -365,6 +532,8 @@
                             <div class="location-item-row p-3 rounded-2xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50/80 transition-all cursor-pointer flex items-center justify-between gap-3 {{ $idx === 0 ? 'border-emerald-500 bg-emerald-50/40' : '' }}"
                                  data-id="{{ $loc['id'] }}"
                                  data-pillar="{{ $loc['pillar_code'] }}"
+                                 data-province="{{ $loc['province'] }}"
+                                 data-city="{{ $loc['city'] }}"
                                  onclick="selectLocationFromList({{ $loc['id'] }})">
                                 <div class="flex items-center gap-2.5 min-w-0">
                                     <span class="w-3 h-3 rounded-full shrink-0" style="background-color: {{ $loc['pillar_color'] }}"></span>
@@ -373,7 +542,7 @@
                                             {{ $loc['title'] }}
                                         </div>
                                         <div class="text-[10px] text-slate-400 font-medium truncate">
-                                            {{ $loc['location_name'] }} • <span class="font-mono text-slate-500">Pilar {{ $loc['pillar_code'] }}</span>
+                                            <span class="text-emerald-700 font-bold">{{ $loc['city'] }}</span>, {{ $loc['province'] }} • <span class="font-mono text-slate-500">Pilar {{ $loc['pillar_code'] }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -387,7 +556,7 @@
 
             </div>
 
-            {{-- ACCESSIBLE ALTERNATIVE LIST VIEW (WCAG 2.2 AA) --}}
+            {{-- ACCESSIBLE ALTERNATIVE LIST VIEW (WCAG 2.2 AA) DENGAN HIERARKI WILAYAH --}}
             <div x-show="viewMode === 'list'" style="display: none;" class="bg-white rounded-3xl p-6 border border-slate-200/90 shadow-sm overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-xs border-collapse">
@@ -395,7 +564,9 @@
                             <tr class="border-b border-slate-200 text-slate-400 uppercase font-black tracking-wider text-[10px]">
                                 <th class="py-3 px-4">Pilar</th>
                                 <th class="py-3 px-4">Program & Inisiatif</th>
-                                <th class="py-3 px-4">Lokasi & Wilayah</th>
+                                <th class="py-3 px-4">Provinsi</th>
+                                <th class="py-3 px-4">Kabupaten / Kota</th>
+                                <th class="py-3 px-4">Detail Lokasi</th>
                                 <th class="py-3 px-4">Status</th>
                                 <th class="py-3 px-4">Penerima Manfaat / Target</th>
                                 <th class="py-3 px-4 text-right">Aksi</th>
@@ -413,11 +584,14 @@
                                     {{ $loc['title'] }}
                                     <p class="text-[11px] text-slate-500 font-normal mt-0.5 line-clamp-1">{{ $loc['desc'] }}</p>
                                 </td>
-                                <td class="py-3 px-4 text-slate-600 whitespace-nowrap">
-                                    <span class="inline-flex items-center gap-1.5">
-                                        <svg class="w-3.5 h-3.5 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                        <span>{{ $loc['location_name'] }}</span>
-                                    </span>
+                                <td class="py-3 px-4 whitespace-nowrap font-bold text-emerald-800">
+                                    {{ $loc['province'] }}
+                                </td>
+                                <td class="py-3 px-4 whitespace-nowrap text-slate-700 font-medium">
+                                    {{ $loc['city'] }}
+                                </td>
+                                <td class="py-3 px-4 text-slate-600">
+                                    {{ $loc['detail_address'] }}
                                 </td>
                                 <td class="py-3 px-4 whitespace-nowrap">
                                     <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase text-emerald-800 bg-emerald-50 border border-emerald-200">
@@ -444,16 +618,21 @@
     </div>
 </div>
 
-{{-- JAVASCRIPT INICIALISASI MAP DAN INTERAKSI --}}
+{{-- JAVASCRIPT INICIALISASI MAP, KLASTERING ANTI-TABRAKAN, DAN FILTER HIERARKIS --}}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const locationsData = @json($mapLocations);
+        const citiesByProvinceMap = @json($citiesByProv);
+
         let activeFilter = 'ALL';
+        let activeProvince = 'ALL';
+        let activeCity = 'ALL';
+
         let mapInstance = null;
-        let markersGroup = null;
+        let clusterGroup = null;
         const markersMap = {};
 
-        // Inisialisasi Peta Leaflet
+        // Inisialisasi Peta Leaflet & MarkerCluster Anti-Tabrakan
         function initMap() {
             const mapContainer = document.getElementById('yotaPillarsMap');
             if (!mapContainer || typeof L === 'undefined') return;
@@ -463,43 +642,75 @@
                 center: [-2.5, 118.0],
                 zoom: 5,
                 minZoom: 4,
-                maxZoom: 16,
+                maxZoom: 18,
                 zoomControl: false,
-                scrollWheelZoom: false, // cegah scrolling tak sengaja di mobile
+                scrollWheelZoom: false,
             });
 
             // Zoom control di kiri bawah
             L.control.zoom({ position: 'bottomright' }).addTo(mapInstance);
 
-            // Layer Peta Elegan: Esri World Light Gray Base & Reference (Bebas Watermark API Key, Halus, Presisi)
+            // Layer Peta Canvas Elegan (Esri World Light Gray Base & Reference)
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-                attribution: '&copy; <a href="https://www.esri.com/">Esri</a>, HERE, Garmin, &copy; OpenStreetMap contributors | YOTA Adiwidya Center',
-                maxZoom: 16
+                attribution: '&copy; Esri, HERE, Garmin, OSM contributors | YOTA Adiwidya Center',
+                maxZoom: 18
             }).addTo(mapInstance);
 
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 16
+                maxZoom: 18
             }).addTo(mapInstance);
 
-            markersGroup = L.layerGroup().addTo(mapInstance);
+            // Buat Cluster Group dengan Spiderfy Otomatis (Mencegah Pin Bertumpuk/Tabrakan)
+            clusterGroup = L.markerClusterGroup({
+                showCoverageOnHover: false,
+                maxClusterRadius: 35, // Jarak radius pengelompokan pin yang berdekatan
+                spiderfyOnMaxZoom: true, // Spiderfy: mengurai pin yang bertumpukan saat di-zoom maksimal
+                zoomToBoundsOnClick: true,
+                spiderLegPolylineOptions: { weight: 1.5, color: '#052c24', opacity: 0.6 },
+                iconCreateFunction: function (cluster) {
+                    const count = cluster.getChildCount();
+                    return L.divIcon({
+                        html: `
+                            <div class="yota-cluster-bubble">
+                                <span class="yota-cluster-count">${count}</span>
+                                <span class="yota-cluster-label">Aksi</span>
+                            </div>
+                        `,
+                        className: 'yota-cluster-pin',
+                        iconSize: L.point(44, 44),
+                        iconAnchor: [22, 22]
+                    });
+                }
+            });
 
-            renderMarkers('ALL');
+            mapInstance.addLayer(clusterGroup);
+
+            // Render Titik
+            renderMap();
         }
 
-        // Render Marker Pin
-        function renderMarkers(pillarFilter) {
-            if (!mapInstance || !markersGroup) return;
+        // Render Marker Pin ke dalam Cluster Group
+        function renderMap() {
+            if (!mapInstance || !clusterGroup) return;
 
-            markersGroup.clearLayers();
-
+            clusterGroup.clearLayers();
             const bounds = [];
 
             locationsData.forEach(loc => {
-                if (pillarFilter !== 'ALL' && loc.pillar_code !== pillarFilter) {
+                // Filter Pilar
+                if (activeFilter !== 'ALL' && loc.pillar_code !== activeFilter) {
+                    return;
+                }
+                // Filter Provinsi
+                if (activeProvince !== 'ALL' && loc.province !== activeProvince) {
+                    return;
+                }
+                // Filter Kabupaten / Kota
+                if (activeCity !== 'ALL' && loc.city !== activeCity) {
                     return;
                 }
 
-                // Buat Custom HTML Marker dengan Gelombang Pulse
+                // Custom Pin HTML dengan Label Pilar
                 const customIcon = L.divIcon({
                     className: 'yota-map-pin',
                     html: `
@@ -510,16 +721,16 @@
                             </div>
                         </div>
                     `,
-                    iconSize: [32, 32],
-                    iconAnchor: [16, 16],
+                    iconSize: [34, 34],
+                    iconAnchor: [17, 17],
                     popupAnchor: [0, -18]
                 });
 
                 const marker = L.marker([loc.lat, loc.lng], { icon: customIcon });
 
-                // Custom Popup Content
+                // Popup Detail
                 const popupContent = `
-                    <div class="p-4 bg-white max-w-[260px] font-['Plus_Jakarta_Sans']">
+                    <div class="p-4 bg-white max-w-[270px] font-['Plus_Jakarta_Sans']">
                         <div class="flex items-center justify-between gap-2 mb-2">
                             <span class="px-2 py-0.5 rounded text-[8px] font-black uppercase text-white" style="background-color: ${loc.pillar_color}">
                                 PILAR ${loc.pillar_code}
@@ -531,9 +742,12 @@
                         <h5 class="text-xs font-black text-[#052c24] leading-snug uppercase mb-1">
                             ${loc.title}
                         </h5>
+                        <div class="text-[10px] text-emerald-800 font-bold mb-1">
+                            ${loc.city}, ${loc.province}
+                        </div>
                         <p class="text-[10px] text-slate-500 font-medium mb-3 flex items-center gap-1">
                             <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            <span>${loc.location_name}</span>
+                            <span>${loc.detail_address}</span>
                         </p>
                         <a href="${loc.url}" class="block w-full py-1.5 text-center rounded-xl bg-[#052c24] text-[#BEF264] text-[9px] font-black uppercase tracking-wider hover:bg-emerald-800 transition-all">
                             Lihat Detail →
@@ -547,22 +761,32 @@
                     updateActiveCard(loc);
                 });
 
-                markersGroup.addLayer(marker);
+                clusterGroup.addLayer(marker);
                 markersMap[loc.id] = marker;
                 bounds.push([loc.lat, loc.lng]);
             });
 
-            // Sesuaikan Zoom jika filter spesifik
-            if (bounds.length > 0 && pillarFilter !== 'ALL') {
-                mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 8 });
+            // Sesuaikan Zoom sesuai hasil filter
+            if (bounds.length > 0) {
+                if (activeCity !== 'ALL') {
+                    mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 12 });
+                } else if (activeProvince !== 'ALL') {
+                    mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 8 });
+                } else if (activeFilter !== 'ALL') {
+                    mapInstance.fitBounds(bounds, { padding: [50, 50], maxZoom: 7 });
+                }
             }
+
+            updateSidebarList();
         }
 
-        // Update Card Informasi di Samping Peta
+        // Update Tampilan Card Informasi Aktif
         function updateActiveCard(loc) {
             const cardPillar = document.getElementById('cardPillarBadge');
             const cardStatus = document.getElementById('cardStatusBadge');
             const cardTitle = document.getElementById('cardTitle');
+            const cardProvince = document.getElementById('cardProvinceBadge');
+            const cardCity = document.getElementById('cardCityBadge');
             const cardLocation = document.getElementById('cardLocation');
             const cardDesc = document.getElementById('cardDesc');
             const cardBeneficiaries = document.getElementById('cardBeneficiaries');
@@ -578,8 +802,14 @@
             if (cardTitle) {
                 cardTitle.innerText = loc.title;
             }
+            if (cardProvince) {
+                cardProvince.innerText = loc.province;
+            }
+            if (cardCity) {
+                cardCity.innerText = loc.city;
+            }
             if (cardLocation) {
-                cardLocation.innerText = loc.location_name;
+                cardLocation.innerText = loc.detail_address || loc.location_name;
             }
             if (cardDesc) {
                 cardDesc.innerText = loc.desc;
@@ -602,31 +832,23 @@
             });
         }
 
-        // Global Handler untuk Tombol Filter
-        window.filterMapPillar = function (pillarCode, btnElement) {
-            activeFilter = pillarCode;
-
-            // Update Style Tombol
-            document.querySelectorAll('.pillar-filter-btn').forEach(btn => {
-                btn.classList.remove('bg-[#052c24]', 'text-white', 'border-[#052c24]');
-                btn.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
-            });
-
-            btnElement.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
-            btnElement.classList.add('bg-[#052c24]', 'text-white', 'border-[#052c24]');
-
-            renderMarkers(pillarCode);
-
-            // Filter List di Kanan
+        // Update Daftar di Sidebar Kanan
+        function updateSidebarList() {
             let count = 0;
             let firstVisibleLoc = null;
 
             document.querySelectorAll('.location-item-row').forEach(row => {
-                const rowPillar = row.getAttribute('data-pillar');
                 const rowId = row.getAttribute('data-id');
+                const rowPillar = row.getAttribute('data-pillar');
+                const rowProvince = row.getAttribute('data-province');
+                const rowCity = row.getAttribute('data-city');
                 const locObj = locationsData.find(l => l.id == rowId);
 
-                if (pillarCode === 'ALL' || rowPillar === pillarCode) {
+                const matchPillar = (activeFilter === 'ALL' || rowPillar === activeFilter);
+                const matchProvince = (activeProvince === 'ALL' || rowProvince === activeProvince);
+                const matchCity = (activeCity === 'ALL' || rowCity === activeCity);
+
+                if (matchPillar && matchProvince && matchCity) {
                     row.style.display = 'flex';
                     count++;
                     if (!firstVisibleLoc && locObj) firstVisibleLoc = locObj;
@@ -641,20 +863,100 @@
             if (firstVisibleLoc) {
                 updateActiveCard(firstVisibleLoc);
             }
+        }
+
+        // Handler Filter Provinsi
+        window.filterByProvince = function (provinceName) {
+            activeProvince = provinceName;
+            activeCity = 'ALL';
+
+            // Update Breadcrumb
+            const bcProv = document.getElementById('breadcrumbProvince');
+            const bcCity = document.getElementById('breadcrumbCity');
+            if (bcProv) bcProv.innerText = provinceName === 'ALL' ? 'Semua Provinsi' : provinceName;
+            if (bcCity) bcCity.innerText = 'Semua Kab/Kota';
+
+            // Populate Dropdown Kabupaten/Kota sesuai Provinsi terpilih
+            const citySelect = document.getElementById('cityFilterSelect');
+            if (citySelect) {
+                citySelect.innerHTML = '<option value="ALL">Semua Kab / Kota</option>';
+                if (provinceName !== 'ALL' && citiesByProvinceMap[provinceName]) {
+                    citiesByProvinceMap[provinceName].forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c;
+                        opt.innerText = c;
+                        citySelect.appendChild(opt);
+                    });
+                }
+                citySelect.value = 'ALL';
+            }
+
+            renderMap();
         };
 
-        // Global Handler Klik dari List
+        // Handler Filter Kabupaten/Kota
+        window.filterByCity = function (cityName) {
+            activeCity = cityName;
+
+            const bcCity = document.getElementById('breadcrumbCity');
+            if (bcCity) bcCity.innerText = cityName === 'ALL' ? 'Semua Kab/Kota' : cityName;
+
+            renderMap();
+        };
+
+        // Handler Reset Filter Wilayah
+        window.resetRegionFilters = function () {
+            activeProvince = 'ALL';
+            activeCity = 'ALL';
+
+            const provSelect = document.getElementById('provFilterSelect');
+            const citySelect = document.getElementById('cityFilterSelect');
+            if (provSelect) provSelect.value = 'ALL';
+            if (citySelect) {
+                citySelect.innerHTML = '<option value="ALL">Semua Kab / Kota</option>';
+                citySelect.value = 'ALL';
+            }
+
+            const bcProv = document.getElementById('breadcrumbProvince');
+            const bcCity = document.getElementById('breadcrumbCity');
+            if (bcProv) bcProv.innerText = 'Semua Provinsi';
+            if (bcCity) bcCity.innerText = 'Semua Kab/Kota';
+
+            renderMap();
+            resetMapView();
+        };
+
+        // Handler Filter Pilar
+        window.filterMapPillar = function (pillarCode, btnElement) {
+            activeFilter = pillarCode;
+
+            document.querySelectorAll('.pillar-filter-btn').forEach(btn => {
+                btn.classList.remove('bg-[#052c24]', 'text-white', 'border-[#052c24]');
+                btn.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
+            });
+
+            btnElement.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
+            btnElement.classList.add('bg-[#052c24]', 'text-white', 'border-[#052c24]');
+
+            renderMap();
+        };
+
+        // Handler Klik Item dari Daftar Sidebar
         window.selectLocationFromList = function (locationId) {
             const loc = locationsData.find(l => l.id == locationId);
             if (!loc) return;
 
             updateActiveCard(loc);
 
-            if (mapInstance) {
-                mapInstance.flyTo([loc.lat, loc.lng], 9, { duration: 1.2 });
+            if (mapInstance && clusterGroup) {
                 const marker = markersMap[locationId];
                 if (marker) {
-                    setTimeout(() => marker.openPopup(), 1200);
+                    // Jika marker ada dalam klaster, zoom ke klaster dan buka spiderfy/popup
+                    clusterGroup.zoomToShowLayer(marker, () => {
+                        marker.openPopup();
+                    });
+                } else {
+                    mapInstance.flyTo([loc.lat, loc.lng], 13, { duration: 1.2 });
                 }
             }
         };
@@ -666,7 +968,7 @@
             }
         };
 
-        // Jalankan Inisialisasi
+        // Inisialisasi Peta
         if (locationsData.length > 0) {
             initMap();
         }

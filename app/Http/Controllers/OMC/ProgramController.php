@@ -50,10 +50,19 @@ class ProgramController extends Controller
         $data['target_audience'] = ['id' => $request->audience_id, 'en' => $request->audience_en];
         $data['methodology'] = ['id' => $request->method_id, 'en' => $request->method_en];
 
-        // Simpan Pilar ke impact_stats agar 100% aman dan langsung terbaca di Peta
+        // Simpan Pilar & Hierarki Lokasi ke impact_stats agar 100% aman dan langsung terbaca di Peta
         $stats = [];
         $stats['pillar_code'] = $request->pillar_code ?? '01';
+        $stats['province'] = $request->province ?? 'Jawa Barat';
+        $stats['city'] = $request->city ?? 'Bandung';
+        $stats['detail_address'] = $request->detail_address ?? '';
         $data['impact_stats'] = $stats;
+
+        if ($request->filled('city') && $request->filled('province')) {
+            $data['location_name'] = $request->filled('detail_address') 
+                ? ($request->detail_address . ', ' . $request->city . ', ' . $request->province)
+                : ($request->city . ', ' . $request->province);
+        }
 
         if ($request->hasFile('banner_image')) {
             $data['banner_image'] = $request->file('banner_image')->store('programs/banners', 'public');
@@ -103,7 +112,11 @@ class ProgramController extends Controller
             } catch (\Throwable $e) {}
         }
 
-        return view('omc.programs.edit', compact('program', 'pillars', 'currentPillar'));
+        $currentProvince = $program->impact_stats['province'] ?? '';
+        $currentCity = $program->impact_stats['city'] ?? '';
+        $currentDetail = $program->impact_stats['detail_address'] ?? '';
+
+        return view('omc.programs.edit', compact('program', 'pillars', 'currentPillar', 'currentProvince', 'currentCity', 'currentDetail'));
     }
 
     public function update(Request $request, Program $program)
@@ -125,12 +138,27 @@ class ProgramController extends Controller
             $data['coordinates'] = trim($request->coordinates);
         }
 
-        // Update Pilar di impact_stats
+        // Update Pilar & Hierarki Lokasi di impact_stats
         $stats = is_array($program->impact_stats) ? $program->impact_stats : [];
         if ($request->filled('pillar_code')) {
             $stats['pillar_code'] = $request->pillar_code;
         }
+        if ($request->filled('province')) {
+            $stats['province'] = $request->province;
+        }
+        if ($request->filled('city')) {
+            $stats['city'] = $request->city;
+        }
+        if ($request->has('detail_address')) {
+            $stats['detail_address'] = $request->detail_address;
+        }
         $data['impact_stats'] = $stats;
+
+        if ($request->filled('city') && $request->filled('province')) {
+            $data['location_name'] = $request->filled('detail_address') 
+                ? ($request->detail_address . ', ' . $request->city . ', ' . $request->province)
+                : ($request->city . ', ' . $request->province);
+        }
 
         if ($request->hasFile('banner_image')) {
             if ($program->banner_image) Storage::disk('public')->delete($program->banner_image);
