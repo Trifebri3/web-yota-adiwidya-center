@@ -104,7 +104,7 @@
                     </p>
                     <p>
                         <strong class="text-white block font-bold">Email:</strong>
-                        <a href="mailto:yotaadiwidyacenter@gmail.com" class="hover:text-[#BEF264] transition-colors">yotaadiwidyacenter@gmail.com</a>
+                        <a href="mailto:hello@siyota.org" class="hover:text-[#BEF264] transition-colors">hello@siyota.org</a>
                     </p>
                     <p>
                         <strong class="text-white block font-bold">Telepon/WA:</strong>

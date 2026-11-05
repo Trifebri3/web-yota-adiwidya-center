@@ -105,7 +105,7 @@
                     </svg>
                 </button>
                 <div x-show="active === 5" x-collapse class="px-6 pb-5 pt-1 text-xs md:text-sm text-slate-600 leading-relaxed font-normal border-t border-slate-100">
-                    Kami menyambut kerja sama Tri Dharma Perguruan Tinggi, kolaborasi pendanaan CSR, maupun kemitraan teknis lembaga donor. Silakan hubungi tim kemitraan kami melalui surel resmi di <strong>yotaadiwidyacenter@gmail.com</strong> atau kunjungi laman <a href="{{ route('public.tentangkami.kontak') }}" class="text-emerald-700 font-bold underline">Kontak & Kemitraan</a>.
+                    Kami menyambut kerja sama Tri Dharma Perguruan Tinggi, kolaborasi pendanaan CSR, maupun kemitraan teknis lembaga donor. Silakan hubungi tim kemitraan kami melalui surel resmi di <strong>hello@siyota.org</strong> atau kunjungi laman <a href="{{ route('public.tentangkami.kontak') }}" class="text-emerald-700 font-bold underline">Kontak & Kemitraan</a>.
                 </div>
             </div>
 
@@ -157,7 +157,7 @@
             "name": "Bagaimana cara institusi, kampus, atau korporasi mengajukan kerja sama?",
             "acceptedAnswer": {
                 "{{ '@' }}type": "Answer",
-                "text": "Institusi dapat menghubungi tim kemitraan melalui email yotaadiwidyacenter@gmail.com atau melalui halaman kontak resmi di siyota.org."
+                "text": "Institusi dapat menghubungi tim kemitraan melalui email hello@siyota.org atau melalui halaman kontak resmi di siyota.org."
             }
         }
     ]

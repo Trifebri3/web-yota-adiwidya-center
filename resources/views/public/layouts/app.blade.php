@@ -117,7 +117,7 @@
                     "@type": "ContactPoint",
                     "telephone": "+6285117713303",
                     "contactType": "customer service",
-                    "email": "yotaadiwidyacenter@gmail.com",
+                    "email": "hello@siyota.org",
                     "availableLanguage": ["Indonesian", "English"]
                 },
                 "sameAs": [

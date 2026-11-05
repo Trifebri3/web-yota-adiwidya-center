@@ -79,7 +79,7 @@
         {{-- 4. CTA --}}
         <div class="mt-32 border-t border-slate-100 pt-20 text-center">
             <h4 class="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em] mb-8">Want to collaborate?</h4>
-            <a href="mailto:yotaadiwidyacenter@gmail.com" class="text-2xl md:text-4xl font-black text-[#052c24] hover:text-lime-500 transition-colors uppercase tracking-tighter italic">
+            <a href="mailto:hello@siyota.org" class="text-2xl md:text-4xl font-black text-[#052c24] hover:text-lime-500 transition-colors uppercase tracking-tighter italic">
                 Get in Touch with our Team —→
             </a>
         </div>

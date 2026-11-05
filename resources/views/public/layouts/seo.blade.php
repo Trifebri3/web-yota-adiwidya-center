@@ -35,7 +35,7 @@
     "@type": "ContactPoint",
     "telephone": "+62-851-1771-3303",
     "contactType": "customer service",
-    "email": "yotaadiwidyacenter@gmail.com"
+    "email": "hello@siyota.org"
   }
 }
 </script>
