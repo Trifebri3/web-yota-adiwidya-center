@@ -1,0 +1,22 @@
+<?php
+return [
+    'hero_quote' => 'Kemajuan sejati lahir dari ilmu yang bermanfaat, teknologi yang berpihak pada kehidupan, dan kepedulian yang berakar pada kemanusiaan.',
+    'title_yota' => 'Yota Adiwidya Center',
+    'title_sub' => 'Wujudkan Asa Melalui Ilmu.',
+    'desc_1' => 'Yota Adiwidya Center adalah lembaga yang berkomitmen membangun **peradaban berkelanjutan** melalui pendidikan, inovasi, dan kepedulian sosial.',
+    'desc_2' => 'Dengan pendekatan yang memadukan ilmu pengetahuan, nilai kemanusiaan, dan kearifan lokal, kami menjadi ruang kolaborasi bagi generasi muda untuk menumbuhkan kesadaran ekologis dan integritas spiritual.',
+    'name_philosophy' => 'Filosofi Nama',
+    'yota_meaning_title' => 'Titik Kecil',
+    'yota_meaning_desc' => 'Berasal dari bahasa Yunani, melambangkan langkah awal yang sederhana menuju tujuan besar.',
+    'adiwidya_meaning_title' => 'Ilmu Unggul',
+    'adiwidya_meaning_desc' => 'Dari bahasa Sanskerta, mencerminkan komitmen kami terhadap pengembangan ilmu berkualitas tinggi.',
+    'logo_meaning' => 'Makna Simbol',
+    'logo_light_title' => 'Lampu',
+    'logo_light_desc' => 'Melambangkan ide, inovasi, dan pencerahan sebagai pusat ilmu pengetahuan dan teknologi.',
+    'logo_leaf_title' => 'Daun',
+    'logo_leaf_desc' => 'Alam dan keberlanjutan. Menjamin setiap inovasi berlandaskan kepedulian lingkungan.',
+    'legal_title' => 'Akuntabilitas',
+    'legal_subtitle' => 'Legalitas & Informasi Organisasi',
+    'commitment_1' => 'Transparansi publik dan akuntabilitas dalam setiap gerakan sosial.',
+    'commitment_2' => 'Meningkatkan kepercayaan donor dan mitra melalui data yang terverifikasi.',
+];

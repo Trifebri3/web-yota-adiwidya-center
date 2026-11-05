@@ -1,0 +1,22 @@
+<?php
+return [
+    'hero_quote' => 'True progress is born from beneficial knowledge, technology that sides with life, and care rooted in humanity.',
+    'title_yota' => 'Yota Adiwidya Center',
+    'title_sub' => 'Wujudkan Asa Melalui Ilmu.',
+    'desc_1' => 'Yota Adiwidya Center is an institution committed to building **sustainable civilization** through education, innovation, and social care.',
+    'desc_2' => 'With an approach that blends science, human values, and local wisdom, we become a collaboration space for the younger generation to grow ecological awareness and spiritual integrity.',
+    'name_philosophy' => 'Name Philosophy',
+    'yota_meaning_title' => 'The Small Point',
+    'yota_meaning_desc' => 'Derived from Greek, it symbolizes a simple first step towards a grand destination.',
+    'adiwidya_meaning_title' => 'Superior Knowledge',
+    'adiwidya_meaning_desc' => 'From Sanskrit, reflecting our commitment to high-quality knowledge development.',
+    'logo_meaning' => 'The Symbolism',
+    'logo_light_title' => 'Light Bulb',
+    'logo_light_desc' => 'Symbolizing ideas, innovation, and enlightenment as a center for science and technology.',
+    'logo_leaf_title' => 'The Leaf',
+    'logo_leaf_desc' => 'Nature and sustainability. Ensuring all innovations are grounded in environmental care.',
+    'legal_title' => 'Accountability',
+    'legal_subtitle' => 'Legality & Organization Information',
+    'commitment_1' => 'Public transparency and accountability in every social movement.',
+    'commitment_2' => 'Increasing donor and partner trust through verified data.',
+];

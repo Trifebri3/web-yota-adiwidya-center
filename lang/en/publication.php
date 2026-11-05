@@ -1,0 +1,31 @@
+<?php
+return [
+    'newsroom' => 'Official Media Center',
+    'archive_title' => 'The Archive',
+    'archive_subtitle' => 'Exploring narratives of innovation, community resilience, and our journey in healing the earth.',
+    'search_placeholder' => 'Search narratives...',
+    'sort_latest' => 'Latest Release',
+    'sort_popular' => 'Most Viewed',
+    'sort_trending' => 'Trending Stories',
+    'read_more' => 'Read Discovery',
+    'not_found' => 'No Narratives Found',
+    'download_title' => 'Download Official Document',
+    'download_desc' => 'This publication is accompanied by an official PDF report for deeper reference.',
+    'all' => 'All Narratives',
+    'berita_resmi' => 'Official News',
+    'kegiatan_yota' => 'Programs & Activities',
+    'lingkungan' => 'Environment',
+    'bencana' => 'Emergency Response',
+    'edukasi' => 'Education & Literacy',
+    'opini' => 'Opinion & Perspective',
+
+    'types' => [
+    'all' => 'All Narratives',
+    'berita_resmi' => 'Official News',
+    'kegiatan_yota' => 'Programs & Activities',
+    'lingkungan' => 'Environment',
+    'bencana' => 'Emergency Response',
+    'edukasi' => 'Education & Literacy',
+    'opini' => 'Opinion & Perspective',
+],
+];

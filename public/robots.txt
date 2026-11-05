@@ -1,0 +1,12 @@
+# SIYOTA.org Robots.txt — Yayasan Yota Wujudkan Asa
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /omc/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /register
+Disallow: /password/
+
+# Sitemap location
+Sitemap: https://siyota.org/sitemap.xml
