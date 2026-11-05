@@ -119,14 +119,24 @@ class ImpactAreaController extends Controller
      */
     public function edit($id)
     {
-        $impactArea = ImpactArea::find($id);
+        $impactArea = null;
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('impact_areas')) {
+                $impactArea = ImpactArea::find($id);
+            }
+        } catch (\Throwable $e) {
+            $impactArea = null;
+        }
 
         if (!$impactArea) {
             // Jika belum ada di DB tapi ada di default
             $defaultPillars = ImpactArea::getDefaultPillars();
-            $default = $defaultPillars->firstWhere('id', $id) ?? $defaultPillars->first();
+            $default = $defaultPillars->firstWhere('id', (int)$id)
+                    ?: $defaultPillars->firstWhere('code', $id)
+                    ?: $defaultPillars->firstWhere('slug', $id)
+                    ?: $defaultPillars->first();
 
-            // Auto-seed atau buat instance
             $impactArea = new ImpactArea((array)$default);
             $impactArea->id = $id;
         }
@@ -139,6 +149,11 @@ class ImpactAreaController extends Controller
      */
     public function update(Request $request, $id)
     {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('impact_areas')) {
+            return redirect()->route('omc.impact-areas.index')
+                ->with('info', 'Tabel database impact_areas belum dibuat. Silakan jalankan php artisan migrate di terminal hosting jika ingin menyimpan perubahan ke database.');
+        }
+
         $impactArea = ImpactArea::find($id);
 
         if (!$impactArea) {

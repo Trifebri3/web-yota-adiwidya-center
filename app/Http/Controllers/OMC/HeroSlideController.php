@@ -15,10 +15,20 @@ class HeroSlideController extends Controller
      */
     public function index()
     {
-        $slides = HeroSlide::with('publication')
-            ->orderBy('order', 'asc')
-            ->orderBy('id', 'desc')
-            ->paginate(15);
+        $slides = collect();
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('hero_slides')) {
+                $slides = HeroSlide::with('publication')
+                    ->orderBy('order', 'asc')
+                    ->orderBy('id', 'desc')
+                    ->paginate(15);
+            } else {
+                $slides = new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, 15);
+            }
+        } catch (\Throwable $e) {
+            $slides = new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, 15);
+        }
 
         return view('omc.hero_slides.index', compact('slides'));
     }
