@@ -48,19 +48,51 @@
                 </div>
             </div>
 
+            {{-- Pilar Program --}}
+            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Pilar Utama Program <span class="text-rose-500">*</span></label>
+                <select name="pillar_code" class="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-lime-500 transition-all text-[#052c24]" required>
+                    <option value="01" {{ ($currentPillar ?? '01') == '01' ? 'selected' : '' }}>Pilar 01 • Youth Development (Biru)</option>
+                    <option value="02" {{ ($currentPillar ?? '01') == '02' ? 'selected' : '' }}>Pilar 02 • Community Empowerment (Emas)</option>
+                    <option value="03" {{ ($currentPillar ?? '01') == '03' ? 'selected' : '' }}>Pilar 03 • Environmental Conservation (Hijau)</option>
+                    <option value="04" {{ ($currentPillar ?? '01') == '04' ? 'selected' : '' }}>Pilar 04 • Innovation & Research (Toska)</option>
+                    <option value="05" {{ ($currentPillar ?? '01') == '05' ? 'selected' : '' }}>Pilar 05 • Disaster Resilience (Merah Terakota)</option>
+                    <option value="06" {{ ($currentPillar ?? '01') == '06' ? 'selected' : '' }}>Pilar 06 • Knowledge & Publication (Ungu)</option>
+                </select>
+                <p class="text-[10px] text-slate-400 mt-2">Pilar ini menentukan warna pin dan filter pada Peta Sebaran Program di Halaman Utama.</p>
+            </div>
+
             {{-- Lokasi & Info Teknis --}}
-            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Nama Lokasi</label>
-                    <input type="text" name="location_name" value="{{ $program->location_name }}" class="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold">
+            <div class="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Nama Lokasi / Kota</label>
+                        <input type="text" name="location_name" value="{{ $program->location_name }}" class="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-lime-500 transition-all" placeholder="Contoh: Bandung Barat, Jawa Barat">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Link Google Maps</label>
+                        <input type="url" name="location_link" value="{{ $program->location_link }}" class="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold focus:ring-2 focus:ring-lime-500 transition-all" placeholder="https://maps.app.goo.gl/...">
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Koordinat GPS</label>
-                    <input type="text" name="coordinates" value="{{ $program->coordinates }}" class="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold" placeholder="-6.914, 107.609">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Link Google Maps</label>
-                    <input type="url" name="location_link" value="{{ $program->location_link }}" class="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 text-sm font-bold">
+
+                {{-- Koordinat GPS dengan Shortcut Helper --}}
+                <div class="p-6 bg-slate-50/80 rounded-2xl border border-slate-200/80">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-[10px] font-black uppercase tracking-widest text-slate-500">Koordinat GPS Peta (Latitude, Longitude)</label>
+                        <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">Terkoneksi ke Peta Beranda</span>
+                    </div>
+                    <input type="text" id="coordInput" name="coordinates" value="{{ $program->coordinates }}" class="w-full bg-white border border-slate-200 rounded-xl px-5 py-3.5 text-sm font-mono font-bold focus:ring-2 focus:ring-lime-500 transition-all text-[#052c24]" placeholder="-6.9175, 107.6191">
+                    <p class="text-[11px] text-slate-500 mt-2">Format: <span class="font-mono font-bold">latitude, longitude</span> (Contoh Bandung: <code>-6.9175, 107.6191</code>). Klik salah satu kota di bawah untuk mengisi cepat:</p>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <button type="button" onclick="document.getElementById('coordInput').value='-6.9175, 107.6191'" class="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all">Bandung</button>
+                        <button type="button" onclick="document.getElementById('coordInput').value='-6.8402, 107.5143'" class="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all">Bandung Barat</button>
+                        <button type="button" onclick="document.getElementById('coordInput').value='-6.2088, 106.8456'" class="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all">DKI Jakarta</button>
+                        <button type="button" onclick="document.getElementById('coordInput').value='-7.7956, 110.3695'" class="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all">D.I. Yogyakarta / Sleman</button>
+                        <button type="button" onclick="document.getElementById('coordInput').value='-6.8586, 107.9266'" class="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all">Sumedang</button>
+                        <button type="button" onclick="document.getElementById('coordInput').value='-7.2278, 107.9087'" class="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all">Garut</button>
+                        <button type="button" onclick="document.getElementById('coordInput').value='-6.8167, 107.1333'" class="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all">Cianjur</button>
+                        <button type="button" onclick="document.getElementById('coordInput').value='-7.2575, 112.7521'" class="px-3 py-1 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:border-emerald-500 hover:text-emerald-700 transition-all">Surabaya</button>
+                    </div>
                 </div>
             </div>
         </div>

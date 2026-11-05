@@ -18,12 +18,19 @@ class ProgramController extends Controller
 
     public function create()
     {
-        return view('omc.programs.create');
+        $pillars = [
+            '01' => 'Pilar 01 • Youth Development',
+            '02' => 'Pilar 02 • Community Empowerment',
+            '03' => 'Pilar 03 • Environmental Conservation',
+            '04' => 'Pilar 04 • Innovation & Research',
+            '05' => 'Pilar 05 • Disaster Resilience',
+            '06' => 'Pilar 06 • Knowledge & Publication',
+        ];
+        return view('omc.programs.create', compact('pillars'));
     }
 
     public function store(Request $request)
     {
-
         $request->validate([
             'title_id' => 'required|string',
             'title_en' => 'required|string',
@@ -35,11 +42,18 @@ class ProgramController extends Controller
 
         // Mapping Data Multibahasa Manual
         $data = $request->except(['banner_image']);
-        $data['coordinates'] = $request->coordinates ?? '0,0';
+        $data['coordinates'] = !empty($request->coordinates) ? trim($request->coordinates) : '-6.9175, 107.6191';
+        $data['location_name'] = $request->location_name ?? 'Bandung, Jawa Barat';
+        $data['location_link'] = $request->location_link ?? '#';
         $data['title'] = ['id' => $request->title_id, 'en' => $request->title_en];
         $data['goal'] = ['id' => $request->goal_id, 'en' => $request->goal_en];
         $data['target_audience'] = ['id' => $request->audience_id, 'en' => $request->audience_en];
         $data['methodology'] = ['id' => $request->method_id, 'en' => $request->method_en];
+
+        // Simpan Pilar ke impact_stats agar 100% aman dan langsung terbaca di Peta
+        $stats = [];
+        $stats['pillar_code'] = $request->pillar_code ?? '01';
+        $data['impact_stats'] = $stats;
 
         if ($request->hasFile('banner_image')) {
             $data['banner_image'] = $request->file('banner_image')->store('programs/banners', 'public');
@@ -52,15 +66,44 @@ class ProgramController extends Controller
         $data['target_amount'] = $request->target_amount ?? 0;
         $data['current_amount'] = $request->current_amount ?? 0;
 
-    
-        Program::create($data);
+        $program = Program::create($data);
+
+        // Jika tabel impact_areas ada, sinkronkan juga relasinya
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('impact_areas') && \Illuminate\Support\Facades\Schema::hasTable('program_impact_areas')) {
+                $ia = \App\Models\ImpactArea::where('code', $request->pillar_code)->first();
+                if ($ia) {
+                    $program->impactAreas()->sync([$ia->id]);
+                }
+            }
+        } catch (\Throwable $e) {}
 
         return redirect()->route('omc.programs.index')->with('success', 'Program Published Successfully!');
     }
 
     public function edit(Program $program)
     {
-        return view('omc.programs.edit', compact('program'));
+        $pillars = [
+            '01' => 'Pilar 01 • Youth Development',
+            '02' => 'Pilar 02 • Community Empowerment',
+            '03' => 'Pilar 03 • Environmental Conservation',
+            '04' => 'Pilar 04 • Innovation & Research',
+            '05' => 'Pilar 05 • Disaster Resilience',
+            '06' => 'Pilar 06 • Knowledge & Publication',
+        ];
+
+        $currentPillar = '01';
+        if (is_array($program->impact_stats) && !empty($program->impact_stats['pillar_code'])) {
+            $currentPillar = $program->impact_stats['pillar_code'];
+        } else {
+            try {
+                if (\Illuminate\Support\Facades\Schema::hasTable('impact_areas') && $program->impactAreas()->exists()) {
+                    $currentPillar = $program->impactAreas->first()->code ?? '01';
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        return view('omc.programs.edit', compact('program', 'pillars', 'currentPillar'));
     }
 
     public function update(Request $request, Program $program)
@@ -78,6 +121,17 @@ class ProgramController extends Controller
         $data['target_audience'] = ['id' => $request->audience_id, 'en' => $request->audience_en];
         $data['methodology'] = ['id' => $request->method_id, 'en' => $request->method_en];
 
+        if ($request->filled('coordinates')) {
+            $data['coordinates'] = trim($request->coordinates);
+        }
+
+        // Update Pilar di impact_stats
+        $stats = is_array($program->impact_stats) ? $program->impact_stats : [];
+        if ($request->filled('pillar_code')) {
+            $stats['pillar_code'] = $request->pillar_code;
+        }
+        $data['impact_stats'] = $stats;
+
         if ($request->hasFile('banner_image')) {
             if ($program->banner_image) Storage::disk('public')->delete($program->banner_image);
             $data['banner_image'] = $request->file('banner_image')->store('programs/banners', 'public');
@@ -90,6 +144,16 @@ class ProgramController extends Controller
         }
 
         $program->update($data);
+
+        // Jika tabel impact_areas ada, sinkronkan juga relasinya
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('impact_areas') && \Illuminate\Support\Facades\Schema::hasTable('program_impact_areas') && $request->filled('pillar_code')) {
+                $ia = \App\Models\ImpactArea::where('code', $request->pillar_code)->first();
+                if ($ia) {
+                    $program->impactAreas()->sync([$ia->id]);
+                }
+            }
+        } catch (\Throwable $e) {}
 
         return redirect()->route('omc.programs.index')->with('success', 'Program Updated!');
     }
